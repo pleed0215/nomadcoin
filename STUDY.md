@@ -92,3 +92,126 @@ Must 함수의 코드를 살펴 보면..
 <p class="text-md">{{.PrevHash}}</p>
 {{end}}
 ```
+
+### template 쪼개기.
+
+django나 pug처럼 template을 쪼개서 다른 template에서 불러 올 수 있다.
+{{ define }} 을 이용한다.
+define으로 명명한 template은
+{{template "이름"}} 이렇게 사용한다.
+
+```html
+{{ define "head" }}
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    <link
+      href="https://cdn.jsdelivr.net/npm/reset-css@5.0.1/reset.min.css"
+      rel="stylesheet"
+    />
+    -->
+  <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
+  <!--
+    <link
+      href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    -->
+  <title>{{.Title}} | Nomad Coin</title>
+</head>
+{{ end }}
+```
+
+header.html이 위와 같이 정의가 되어있다면...
+실제로 사용할 때에는..
+
+```html
+<html lang="en">
+  {{template "head"}} ...
+</html>
+```
+
+위와 같이 사용한다.
+
+template 이름들은 전부 소문자를 사용해야하는 모양이다. 대문자로 했더니 작동을 안했다.
+template을 사용하기 전에 준비 과정이 필요하다.
+template을 사전에 다 load를 해야 한다.
+앞에서는 한 개의 단일 template은 ParseFiles를 이용해서 사용했지만.. template을 이용하기 위해서는
+ParseGlob을 사용해야 한다.
+
+전역으로 template의 포인터인 templates를 먼저 정의해서..
+
+```go
+	var templates *template.Template
+```
+
+templates를 다음과 같이 사용한다.
+
+```go
+	templates = template.Must(template.ParseGlob(templateDir + "pages/*.gohtml"))
+	templates = template.Must(templates.ParseGlob(templateDir+ "partials/*.gohtml"))
+```
+
+안타깝게도 go에서는 javascript처럼 `**/*.gohtml`과 같이 사용해 줄 수 없다...
+그래서 위와 같이 정의해서 사용한다.
+그리고 template을 rendering하는 것도 바뀐다.
+
+```go
+func home(rw http.ResponseWriter, r *http.Request) {
+	data := homeData{"GoGOGOOO", bc.GetBlockchain().AllBlock()}
+	//tmpl.Execute(rw, data)
+	templates.ExecuteTemplate(rw, "home", data)
+}
+```
+
+이전과 비교를 위해서 Execute는 주석처리 했다.
+Execute가 ExcuteTemplate으로 바뀌는데, 차이점은 template의 name(위의 gohtml에서 정의한..)이 추가 된 것이다.
+
+!! 여기서 끝이 아니다.
+data를 넘겨줬지만.. 실제로는 잘 안된다.
+왜냐하면 각각 template에도 data를 넘겨주는 작업을 다시 해야 한다.
+
+...
+좀 짜증나는 부분이.... template에 이를테면.. .PageTitle을 넘겨줬다 치면.. 받은 template에서는 .PageTitle이라 쓰면.. 안된다.
+그냥.. **.**만 써야 한다.
+
+```go
+{{template "head" .PageTitle}}
+```
+
+이를테면 위와같이 head template에 .PageTitle을 넘겨줬다치면..
+
+```go
+<title>{{.}} | Nomad Coin</title>
+```
+
+head 템플릿에서는 .으로 사용해야 한다...
+이게 뭔 개소리야..
+..
+갑자기 go template이 sucks해 보인다...
+
+### form in gohtml
+
+form의 data를 읽어 오고 싶은가..?
+설명은 코드로 대체하겠다.
+
+```go
+func add(rw http.ResponseWriter, r *http.Request) {
+	data := addData{"Add"}
+	switch(r.Method) {
+		case "GET":
+			templates.ExecuteTemplate(rw, "add", data)
+		case "POST":
+			r.ParseForm()
+			data:=r.Form.Get("blockData")
+			bc.GetBlockchain().AddBlock(data)
+			http.Redirect(rw, r, "/", http.StatusPermanentRedirect)
+	}
+	//tmpl.Execute(rw, data)
+}
+```
+
+ParseForm을 호출해줘야 form의 data를 읽어 올 수 있다. go의 코드가 공개되어 있으므로
+코드를 참고해서 이해하도록 하자.
