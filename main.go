@@ -1,22 +1,36 @@
 package main
 
 import (
-	"crypto/sha256"
 	"fmt"
+	"log"
+	"net/http"
+	"text/template"
+
+	bc "github.com/pleed0215/nomadcoin/blockchain"
 )
 
-type block struct {
-	data string
-	hash string
-	prevHash string
+const PORT string = ":4000"
+
+type homeData struct {
+	Title string
+	Blocks []*bc.Block
 }
 
-
+func home(rw http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("templates/home.gohtml")) 
+	data := homeData{"GoGOGOOO", bc.GetBlockchain().AllBlock()}
+	tmpl.Execute(rw, data)
+}
 
 func main() {
-	genesisBlock := block{"Genesis block", "", ""}
-	genesisBlock.hash = fmt.Sprintf("%x", sha256.Sum256([]byte(genesisBlock.data+genesisBlock.prevHash)))
+	http.HandleFunc("/", home)
+	chain := bc.GetBlockchain()
+	chain.AddBlock("Genesis block")
+	chain.AddBlock("Second block")
+	chain.AddBlock("Third block")
+	fmt.Printf("Listening on http://localhost%s\n", PORT)
+	log.Fatal(http.ListenAndServe(PORT, nil)) 
+	
 
-	secondBlock := block{"Second block", "", genesisBlock.hash}
-	secondBlock.hash = fmt.Sprintf("%x", sha256.Sum256([]byte(secondBlock.data+secondBlock.prevHash)))
+	chain.ListBlocks()
 }

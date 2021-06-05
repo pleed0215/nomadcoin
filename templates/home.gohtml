@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+    <link
+      href="https://cdn.jsdelivr.net/npm/reset-css@5.0.1/reset.min.css"
+      rel="stylesheet"
+    />
+    -->
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <!--
+    <link
+      href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    -->
+    <title>{{.Title}}</title>
+  </head>
+  <body>
+    <header>
+      <h1>Hello Go world!</h1>
+    </header>
+    <main>
+    <p>Blocks</p>
+    {{range .Blocks}}
+    <div>
+    <ul>
+      <li>{{.Data}}</li>
+      <li>{{.Hash}}</li>
+      <li>{{.PrevHash}}</li>
+    </ul>
+    </div>
+    {{end}}
+    </main>
+  </body>
+</html>
