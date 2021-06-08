@@ -421,3 +421,84 @@ https://github.com/gorilla/mux#middleware
 
 니코는 adaptor를 설명하면서.. http.HandlerFunc 의 타입에 ServeHTTP를 정의해 놨기 때문에.. Handler를 이렇게 사용한것이 어썸하다 했다.
 아직 이해는 잘 안된다.
+
+# CLI
+
+## 패키지 소개
+
+### flag
+
+flag parsing 패키지.
+https://golang.org/pkg/flag/
+
+### cobra
+
+https://github.com/spf13/cobra
+
+git, aduino 등 유명한 cli는 대부분 이 패키지를 이용했다.
+
+command & application 만드는 걸 쉽게 해주고, intelligent suggestion도 해준다.
+
+cobra에 설명을 많이 하고 싶지 않아서 여기서는 flag를 이용할 것이라 함.
+
+## Parsing command
+
+`go run main.go rest`
+로 command를 입력하면 rest 같은 argument는 `os.Args`로 들어간다.
+
+Println으로 출력해보면.. 이렇게 기괴하다..
+`[/var/folders/qr/vgp27ww103xgsgh27gy0fr240000gn/T/go-build2826414399/b001/exe/main rest]`
+
+앞에는 프로그램 정보, 뒤에부터가 argument인 것 같다.
+
+그래서 기본적으로는 아래 코드와 같이 parsing을 진행할 수 있다.
+
+```go
+func main () {
+	if len(os.Args) < 2  {
+		usage()
+	}
+
+	switch os.Args[1] {
+	case "explorer":
+		fmt.Println("Start explorer")
+	case "rest":
+		fmt.Println("Start REST api")
+	default:
+		usage()
+	}
+}
+```
+
+## FlagSet
+
+이제 flag를 진행할 차례.
+`go run main.go explorer -port=4000`
+
+Args flag를 parsing하기 위해서는 Args를 slice한다.
+`os.Args[2:]`
+
+새로운 flagset을 만드려면 flag패키지의 NewFlagSet함수를 이용하면 된다.
+flagset이름과, errorHandling을 받는데, errorHandling은 세 종류의 정슈이다.
+`ContinueOnError, ExitOnError, PanicOnError`
+
+그래서, NewFlagSet은
+`rest:=flag.NewFlagSet("rest", flag.ExitOnError)`
+
+이런식으로 사용할 수가 있다.
+
+위의 코드에서 rest는 flag패키지의 FlagSet struct인데
+
+`flag:=rest.Int("port", 4000, "Defalt port: 4000")`
+
+식으로, flag 이름, 기본값, 사용설명 순으로 인자를 받는다.
+
+```go
+case "rest":
+		rest.Parse(flags)
+		fmt.Println(*flag)
+```
+
+위의 코드처럼 Parsing이 진행되면 flag는 포인터 값이므로 \*flag로 해야 값을 읽어 올 수 있다.
+
+FlagSet의 멤버 함수 중에는 `Parsed`가 있는데, 파싱이 잘되었는지 확인할 수가 있다.
