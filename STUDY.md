@@ -357,3 +357,67 @@ func Start(aPort int) {
 ```
 
 그래서 http대신 NewServerMux로 만들어줘서 newServer를 넘겨주면 오케이.
+
+## Gorilla Mux
+
+standard 라이브러리에서는 못하는?이 아니라 어려운 작업들이 있기 때문에 gorilla mux를 이용한다.
+https://github.com/gorilla/mux
+
+사용방법은 유사하나...
+
+```go
+r := mux.NewRouter()
+r.HandleFunc("/products/{key}", ProductHandler)
+r.HandleFunc("/articles/{category}/", ArticlesCategoryHandler)
+r.HandleFunc("/articles/{category}/{id:[0-9]+}", ArticleHandler)
+```
+
+이런식으로 파라미터나 패턴들을 줄 수 있다.
+
+`go get -u github.com/gorilla/mux`
+명령어로 인스톨한다.
+
+### NewRouter
+
+`NewRouter()` 메소드로 새로운 mux 인스턴스를 만든다.
+기존 사용방법이 똑같아서 굳이 뭘 바꿀 것이 없다.
+
+```go
+func block(rw http.ResponseWriter, r *http.Request) {
+	if(r.Method == "GET") {
+		vars := mux.Vars(r)
+		fmt.Println(vars["id"])
+	}
+}
+
+func Start(aPort int) {
+	newServer := mux.NewRouter()
+	port=fmt.Sprintf(":%d", aPort)
+	newServer.HandleFunc("/", documentation).Methods("GET")
+	newServer.HandleFunc("/blocks", blocks).Methods("GET", "POST")
+	newServer.HandleFunc("/block/{id:[0-9]+}", block).Methods("GET")
+	fmt.Println("listening on http://localhost", port)
+	log.Fatal(http.ListenAndServe(port, newServer))
+}
+```
+
+기존의 start 코드는 위와 같이 바뀔 수 있다.
+`Vars`를 사용하여 파라미터도 가져온 것을 볼 수 있다.
+
+## Height
+
+블록채인 패키지로 다시가서.. height라는 것을 설명을 하시는데..
+이건 id와 비슷한 것 같다. 별 것 없음..
+
+## Error handling
+
+GetBlock에도 에러 핸들링을 위해 에러 코드를 만들고..
+rest api 패키지에도 에러 핸들링을 위한 struct를 만들자.
+
+## Middleware
+
+gorilla mux feature 중 하나인 것 같다.
+https://github.com/gorilla/mux#middleware
+
+니코는 adaptor를 설명하면서.. http.HandlerFunc 의 타입에 ServeHTTP를 정의해 놨기 때문에.. Handler를 이렇게 사용한것이 어썸하다 했다.
+아직 이해는 잘 안된다.

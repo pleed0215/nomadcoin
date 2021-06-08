@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
+	"github.com/gorilla/mux"
+	"github.com/pleed0215/nomadcoin/blockchain"
 	bc "github.com/pleed0215/nomadcoin/blockchain"
 	"github.com/pleed0215/nomadcoin/utils"
 )
@@ -14,9 +17,12 @@ var port string
 const BASE_URL string = "http://localhost"
 
 type url string
-
 func (u url) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("%s%s%s", BASE_URL, port, u)), nil
+}
+
+type errorResponse struct {
+	ErrorMessage string `json:"errorMessage"`
 }
 
 type urlDescription struct {
@@ -28,6 +34,13 @@ type urlDescription struct {
 
 type addBlockBody struct {
 	Message string
+}
+
+func jsonMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.Header().Add("Content-Type", "application/json")
+		next.ServeHTTP(rw, r)
+	})
 }
 
 func documentation(rw http.ResponseWriter, r *http.Request) {
@@ -49,21 +62,20 @@ func documentation(rw http.ResponseWriter, r *http.Request) {
 			Description: "See all blocks",
 		},
 		{
-			URL: "/blocks/{id}",
+			URL: "/blocks/{height}",
 			Method: "GET",
 			Description: "See a block",
-			Payload: "id:int",
+			Payload: "height:int",
 		},
 	}
 	
-	rw.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(rw).Encode(data)
 }
 
 func blocks(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		rw.Header().Add("Content-Type", "application/json")
+
 		json.NewEncoder(rw).Encode(bc.GetBlockchain().AllBlock())
 
 	case "POST":
@@ -71,14 +83,36 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 		utils.HandleError(json.NewDecoder(r.Body).Decode(&addBlockBody))
 		bc.GetBlockchain().AddBlock(addBlockBody.Message)
 		rw.WriteHeader(http.StatusCreated)
+	default:
+		rw.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func block(rw http.ResponseWriter, r *http.Request) {
+	if(r.Method == "GET") {
+		vars := mux.Vars(r)
+		height, err := strconv.Atoi(vars["height"])
+		utils.HandleError(err)
+		block, err := blockchain.GetBlockchain().GetBlock(height)
+		encoder := json.NewEncoder(rw)
+		if err == nil {
+			encoder.Encode(block);
+			rw.WriteHeader(http.StatusOK)
+		} else {
+			errorResponse := errorResponse{fmt.Sprintf("Block height: %d is not found", height)}
+			encoder.Encode(errorResponse)
+			rw.WriteHeader(http.StatusNotFound)
+		}
 	}
 }
 
 func Start(aPort int) {
-	newServer := http.NewServeMux()
+	newServer := mux.NewRouter()
 	port=fmt.Sprintf(":%d", aPort)
-	newServer.HandleFunc("/", documentation)
-	newServer.HandleFunc("/blocks", blocks)
+	newServer.Use(jsonMiddleware)
+	newServer.HandleFunc("/", documentation).Methods("GET")
+	newServer.HandleFunc("/blocks", blocks).Methods("GET", "POST")
+	newServer.HandleFunc("/block/{height:[0-9]+}", block).Methods("GET")
 	fmt.Println("listening on http://localhost", port)
 	log.Fatal(http.ListenAndServe(port, newServer))
 }

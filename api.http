@@ -7,3 +7,5 @@ POST http://localhost:3001/blocks
 {
     "message": "Data for my block"
 }
+###
+http://localhost:3001/block/11
