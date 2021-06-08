@@ -9,7 +9,7 @@ import (
 	bc "github.com/pleed0215/nomadcoin/blockchain"
 )
 
-const port string = ":4000"
+var port string
 const templateDir string = "explorer/templates/"
 var templates *template.Template
 
@@ -41,13 +41,15 @@ func add(rw http.ResponseWriter, r *http.Request) {
 	//tmpl.Execute(rw, data)
 }
 
-func Start() {
+func Start(aPort int) {
+	newServer := http.NewServeMux()
+	port = fmt.Sprintf(":%d", aPort)
 	templates = template.Must(template.ParseGlob(templateDir + "pages/*.gohtml"))
 	templates = template.Must(templates.ParseGlob(templateDir+ "partials/*.gohtml"))
 
-	http.HandleFunc("/", home)
-	http.HandleFunc("/add", add)
+	newServer.HandleFunc("/", home)
+	newServer.HandleFunc("/add", add)
 
 	fmt.Printf("Listening on http://localhost%s\n", port)
-	log.Fatal(http.ListenAndServe(port, nil)) 
+	log.Fatal(http.ListenAndServe(port, newServer)) 
 }

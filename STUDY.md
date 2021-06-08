@@ -215,3 +215,145 @@ func add(rw http.ResponseWriter, r *http.Request) {
 
 ParseForm을 호출해줘야 form의 data를 읽어 올 수 있다. go의 코드가 공개되어 있으므로
 코드를 참고해서 이해하도록 하자.
+
+# REST API
+
+## Marshaling?
+
+Process of transforming the memory representation of an object into a data format subitable for storage or transmission
+: object를 대표하는 메모리를 저장소나 전송에 맞는 포맷에 맞는 데이터 포맷으로 변경해주는 작업.
+
+말이 어려움.
+
+### go의 Marshal 함수
+
+`func Marshal(v interface{}) ([]byte, error)`
+v를 encoding한 JSON을 리턴해준다.
+
+```go
+	b, err := json.Marshal(data)
+	utils.HandleError(err)
+	fmt.Fprintf(rw, "%s", b)
+```
+
+javascript도 body에서 json으로 변경을 해줘서 그렇지.. 이런 작업들이 필요한 것 같다.
+inspect의 network에 가서 위의 결과를 확인하면 안타깝게도 plain/text로 되어 있다. json이 아니라.
+크롬에 json 뷰어 익스텐션을 설치를 했더니, 몰랐는디..
+
+`rw.Header().Add("Content-Type", "application/json")`
+위의 코드를 추가하여 Header json이라는 것을 알려주면 된다...
+
+위 코드 블럭을 한줄로 줄일 수 있는 방법이 있다.
+
+```go
+	json.NewEncoder(rw).Encode(data)
+```
+
+## Struct field tags
+
+go에서는 첫글자가 대문자가 아니면 export를 할 수가 없는데 사실 대부분의 json은 대부분 camel case기반이다. 그래서 사용하는 것이 Struct field tag.
+
+```go
+type URLDescription struct {
+	URL string `json:"url"`
+	Method string `json:"method"`
+	Description string `json:"description"`
+}
+```
+
+뒤에 `\`json:"{name}"\`` 식으로 추가를 해주면 된다.
+
+추가적으로, omitempty를 뒤에 ','로 덧붙여 주면 빈값일 경우에는 출력을 하지 않는다.
+
+```go
+type URLDescription struct {
+	URL string `json:"url"`
+	Method string `json:"method"`
+	Description string `json:"description"`
+	Payload string `json:"payload,omitempty"`
+}
+```
+
+Payload가 없다면 payload 필드는 json에 포함되지 않는다.
+
+추가적으로 `json:"-"`하면 이 필드는 ignored가 된다.
+
+## Marshal Text
+
+위의 코드에서 URLDescription의 URL은 path를 포함하고 있긴하지만.. full path를 주고 싶다면 어떻게 해야할까?
+
+```go
+type Stringer interface {
+	String() string
+}
+```
+
+interface는 일종의 blueprint같은 역할을 한다고 한다.
+Stringer interface의 String method를 이용하면 된다.
+URLDescription struct의 String method를 만들어 주면된다.
+사용은 fmt package가 Stringer interface를 사용하기 때문에, Println같은 fmt의 메소드를 사용하면 Stringer에서 정의한 String method를 사용할 수 있다.
+
+```go
+	type TextMarshaler interface {
+		MarshalText() (text []byte, err error)
+	}
+```
+
+Marshal 함수에서는 encode 패키지의 MarshalText를 이용하는 모양이다.
+그래서 우리가 원하는 타입에 MarshalText 메소드를 주면 된다.
+
+```go
+func (u URL) MarshalText() ([]byte, error) {
+	return []byte(fmt.Sprintf("%s%s", BASE_URL, u)), nil
+}
+```
+
+그러면 marshal encode를 할 때의 data를 우리가 컨트롤 할 수 있게 된다.
+항상 그렇듯 공식 문서를 참고해도 될 것 같다.
+[TextMarshaler](https://golang.org/pkg/encoding/#TextMarshaler)
+
+interface는 js 같이 꼭 implements를 명시할 필요는 없다.
+왜그럴까..
+
+### REST Client(VS code extension)
+
+확장자 http인 것으로..
+
+### POST
+
+Post method를 받았을 때 data를 읽어 오려면...
+json 패키지를 이용해서 decode를 해야 한다.
+
+```go
+var addBlockBody AddBlockBody
+json.NewDecoder(r.Body).Decode(&addBlockBody)
+rw.WriteHeader(http.StatusCreated)
+```
+
+status code를 주는 방법도 눈여겨 볼 것.
+
+### NewServeMux
+
+6.4 강의에서는 여러번 그랬듯이 패키지를 만드는 작업을 했는데,
+문제는 rest api 서버와 explorer 웹서버를 동시에 돌리려고 Start를 하면...
+문제가 생기다. 동기적인 작업들이다보니.. 앞에 작업에서 멈춰있게 된다.
+
+동시에 돌리기 위해 `go 루틴`을 돌리면.. panic에러가 발생한다.
+http가 같은 홈을 사용하기 때문이다. `HandleFunc("/")`
+`panic: http: multiple registrations for /`
+
+ListenAndServe 함수에 보면 두번째 변수인 handler를 여태까지 nil
+로 했는데.. 이 부분을 이제 바꾸면 된다.
+
+```go
+func Start(aPort int) {
+	newServer := http.NewServeMux()
+	port=fmt.Sprintf(":%d", aPort)
+	newServer.HandleFunc("/", documentation)
+	newServer.HandleFunc("/blocks", blocks)
+	fmt.Println("listening on http://localhost", port)
+	log.Fatal(http.ListenAndServe(port, newServer))
+}
+```
+
+그래서 http대신 NewServerMux로 만들어줘서 newServer를 넘겨주면 오케이.

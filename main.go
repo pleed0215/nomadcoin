@@ -1,18 +1,11 @@
 package main
 
 import (
-	bc "github.com/pleed0215/nomadcoin/blockchain"
 	"github.com/pleed0215/nomadcoin/explorer"
+	"github.com/pleed0215/nomadcoin/rest"
 )
 
-
-
-func main() {
-
-	chain := bc.GetBlockchain()
-	chain.AddBlock("Genesis block")
-	chain.AddBlock("Second block")
-	chain.AddBlock("Third block")
-
-	explorer.Start()
+func main () {
+	go rest.Start(3001)
+	explorer.Start(3000)
 }
