@@ -502,3 +502,8 @@ case "rest":
 위의 코드처럼 Parsing이 진행되면 flag는 포인터 값이므로 \*flag로 해야 값을 읽어 올 수 있다.
 
 FlagSet의 멤버 함수 중에는 `Parsed`가 있는데, 파싱이 잘되었는지 확인할 수가 있다.
+
+## Flag
+
+Flag파트는 따로 정리할 내용이 없다.
+위의 flagset을 따로 떼서 flag로 .. 코드 보면 될 것 같다.
