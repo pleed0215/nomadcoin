@@ -507,3 +507,45 @@ FlagSet의 멤버 함수 중에는 `Parsed`가 있는데, 파싱이 잘되었는
 
 Flag파트는 따로 정리할 내용이 없다.
 위의 flagset을 따로 떼서 flag로 .. 코드 보면 될 것 같다.
+
+# Persistence
+
+## Bolt
+
+Bolt는 key/value 방식의 db. bolt는 완성 단계라, 더이상 수정도 없고, 안정적이고, 이해하기 쉽다구 한다.
+헤로쿠도 쓴다고.
+
+### Open
+
+```go
+func main() {
+	// Open the my.db data file in your current directory.
+	// It will be created if it doesn't exist.
+	db, err := bolt.Open("my.db", 0600, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	...
+}
+```
+
+bolt 홈페이지에서 가져온 코드.
+Open, Close 메소드를 이용하면 된다.
+주의할점은 file lock을 걸기 때문에 동시에 db 작업을 여러프로세스에서는 할 수 없다. 작업이 다 끝나기 전에는 db가 열린 상태.
+bolt.Open의 세 번째 인자가 옵션인데, 그래서 옵션에서는 db 교착상태에서 무한정 기다리는 것보다, 타입아웃 옵션을 줄 수 있는 것 같다.
+
+```go
+db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+```
+
+### Transaction
+
+한 번에 한개의 read-write 트랜잭션만 가능하지만, read-only 트랜잭션은 한 번에 많은 트랜잭션을 처리할 수 있다.
+고루틴을 사용할 때 thread safe하지 않기 때문에 locking을 사용하여 고루틴으로 트랜잭션을 처리할 때에도 한 번만 가능하도록 해야 한다.
+
+Read/Write transation은 `db.Update` 메소드, Read-only는 `db.View` 메소드를 이용한다.
+각각의 db.Update는 디스크가 쓰기 작업을 commit하는 것을 기다리는데, `db.Batch`를 사용하여 여러 udpate를 조합하면 오버헤드를 줄일 수 있다.
+
+여러개의 고루틴이 Batch를 호출하는 경우에만 유용하다.
