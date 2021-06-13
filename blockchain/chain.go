@@ -27,7 +27,7 @@ var b *blockchain
 var once sync.Once
 
 func (b *blockchain) persist() {
-	db.SaveBlockchain(utils.ToBytes(b))
+	db.SaveCheckpoint(utils.ToBytes(b))
 }
 
 func (b *blockchain) AddBlock(data string) {
@@ -37,11 +37,29 @@ func (b *blockchain) AddBlock(data string) {
 	b.persist()
 }
 
+func (b *blockchain) AllBlocks() []*Block {
+	var blocks []*Block
+
+	hashCursor := b.NewestHash
+
+	for {
+		block, _ := FindBlock(hashCursor)
+		blocks = append(blocks, block)
+		if block.PrevHash != "" {
+			hashCursor = block.PrevHash
+		} else {
+			break
+		}
+	}
+
+	return blocks
+}
+
 func (b *blockchain) restore(data []byte) {
 	utils.FromBytes(b, data)
 }
 
-func GetBlockchain() *blockchain {
+func BC() *blockchain {
 	if b == nil {
 		once.Do( func() {
 			b = &blockchain{"", 0}

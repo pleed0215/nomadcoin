@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/pleed0215/nomadcoin/blockchain"
 	bc "github.com/pleed0215/nomadcoin/blockchain"
 	"github.com/pleed0215/nomadcoin/utils"
 )
@@ -75,12 +74,12 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
-		json.NewEncoder(rw).Encode(bc.GetBlockchain().AllBlock())
+		json.NewEncoder(rw).Encode(bc.BC().AllBlocks())
 
 	case "POST":
 		var addBlockBody addBlockBody
 		utils.HandleError(json.NewDecoder(r.Body).Decode(&addBlockBody))
-		bc.GetBlockchain().AddBlock(addBlockBody.Message)
+		bc.BC().AddBlock(addBlockBody.Message)
 		rw.WriteHeader(http.StatusCreated)
 	default:
 		rw.WriteHeader(http.StatusMethodNotAllowed)
@@ -91,13 +90,13 @@ func block(rw http.ResponseWriter, r *http.Request) {
 	if(r.Method == "GET") {
 		vars := mux.Vars(r)
 		hash := vars["hash"]
-		block, err := blockchain.FindBlock(hash)
+		block, err := bc.FindBlock(hash)
 		encoder := json.NewEncoder(rw)
 		if err == nil {
 			encoder.Encode(block);
 			rw.WriteHeader(http.StatusOK)
 		} else {
-			errorResponse := errorResponse{fmt.Sprintf("Block height: %d is not found", hash)}
+			errorResponse := errorResponse{fmt.Sprintf("Block height: %s is not found", hash)}
 			encoder.Encode(errorResponse)
 			rw.WriteHeader(http.StatusNotFound)
 		}

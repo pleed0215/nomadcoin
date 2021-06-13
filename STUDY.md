@@ -729,3 +729,13 @@ func FromBytes(i interface{}, data []byte) {
 ```
 
 포인터가 아닌 데이터가 들어가면 안되는데, 그건 Decode함수에서 알아서 컨트롤하니까.. 그냥 사용하면 된다.
+
+## AllBlocks
+
+### Close db
+
+`os.Exit`함수로 종료하게 되면 defer로 해놓은 것을 읽지 못하는 모양이다.
+
+그리하여..
+
+`runtime.GoExit()`를 사용하도록 한다.

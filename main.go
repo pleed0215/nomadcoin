@@ -1,12 +1,15 @@
 package main
 
 import (
-	"github.com/pleed0215/nomadcoin/blockchain"
+	"github.com/pleed0215/nomadcoin/cli"
+	"github.com/pleed0215/nomadcoin/db"
 )
 
 
 
 
 func main () {
-	blockchain.GetBlockchain()
+	defer db.Close()
+
+	cli.Start()
 }

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/pleed0215/nomadcoin/explorer"
 	"github.com/pleed0215/nomadcoin/rest"
@@ -14,7 +15,8 @@ func usage() {
 	fmt.Println("Please use the following commands:")
 	fmt.Println("-port=[PORT]		Must be integer. Set port to use.")
 	fmt.Println("-mode=[MODE]		Choose html, rest or both. Set which server to use.")
-	os.Exit(0)
+	////os.Exit(0)
+	runtime.Goexit()
 }
 
 func Start() {
@@ -24,7 +26,8 @@ func Start() {
 
 	if len(os.Args) ==1 {
 		flag.Usage()
-		os.Exit(0)
+		//os.Exit(0)
+		runtime.Goexit()
 	}
 
 	flag.Parse()
