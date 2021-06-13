@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/pleed0215/nomadcoin/blockchain"
@@ -90,14 +91,15 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 func block(rw http.ResponseWriter, r *http.Request) {
 	if(r.Method == "GET") {
 		vars := mux.Vars(r)
-		hash := vars["hash"]
-		block, err := blockchain.FindBlock(hash)
+		height, err := strconv.Atoi(vars["hash"])
+		utils.HandleError(err)
+		block, err := blockchain.GetBlockchain().GetBlock(height)
 		encoder := json.NewEncoder(rw)
 		if err == nil {
 			encoder.Encode(block);
 			rw.WriteHeader(http.StatusOK)
 		} else {
-			errorResponse := errorResponse{fmt.Sprintf("Block height: %d is not found", hash)}
+			errorResponse := errorResponse{fmt.Sprintf("Block height: %d is not found", height)}
 			encoder.Encode(errorResponse)
 			rw.WriteHeader(http.StatusNotFound)
 		}

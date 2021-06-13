@@ -549,3 +549,183 @@ Read/Write transation은 `db.Update` 메소드, Read-only는 `db.View` 메소드
 각각의 db.Update는 디스크가 쓰기 작업을 commit하는 것을 기다리는데, `db.Batch`를 사용하여 여러 udpate를 조합하면 오버헤드를 줄일 수 있다.
 
 여러개의 고루틴이 Batch를 호출하는 경우에만 유용하다.
+
+## Restructing.
+
+여기는 정리할 부분은 없는데, 코드를 봐야한다.
+db 다루는 것 때문에 blockchain 패키지의 코드를 전부 다시 만들고 있다.
+
+## gob 패키지
+
+binary values exchanged between an Encoder(transmitter) and a decoder. 인코더와 디코더의 binary 데이터 교환 스트림을 다루는 패키지. 말만으로는 잘 모르겠는데..
+
+https://golang.org/pkg/encoding/gob/
+
+쉽게 생각하면 json의 encode, decode, marshaling, serializing 등으로 보면 되는 개념.
+
+```go
+// This example shows how to encode an interface value. The key
+// distinction from regular types is to register the concrete type that
+// implements the interface.
+func main() {
+	var network bytes.Buffer // Stand-in for the network.
+
+	// We must register the concrete type for the encoder and decoder (which would
+	// normally be on a separate machine from the encoder). On each end, this tells the
+	// engine which concrete type is being sent that implements the interface.
+	gob.Register(Point{})
+
+	// Create an encoder and send some values.
+	enc := gob.NewEncoder(&network)
+	for i := 1; i <= 3; i++ {
+		interfaceEncode(enc, Point{3 * i, 4 * i})
+	}
+
+	// Create a decoder and receive some values.
+	dec := gob.NewDecoder(&network)
+	for i := 1; i <= 3; i++ {
+		result := interfaceDecode(dec)
+		fmt.Println(result.Hypotenuse())
+	}
+
+}
+```
+
+이걸 또 보려면..
+bytes 패키지의 Buffer struct도 봐야 한다.
+https://golang.org/pkg/bytes/#Buffer
+
+```go
+// A Buffer is a variable-sized buffer of bytes with Read and Write methods.
+// The zero value for Buffer is an empty buffer ready to use.
+type Buffer struct {
+	buf      []byte // contents are the bytes buf[off : len(buf)]
+	off      int    // read at &buf[off], write at &buf[len(buf)]
+	lastRead readOp // last read operation, so that Unread* can work correctly.
+}
+```
+
+위와 같이 정의되어 있다.
+Buffer struct는 Read/Write Method를 가진 크기 변경 가능한 바이트의 버퍼.
+
+```go
+func ToBytes(i interface{}) []byte {
+	var blockBuffer bytes.Buffer
+	encoder := gob.NewEncoder(&blockBuffer)
+	HandleError(encoder.Encode(i))
+	return blockBuffer.Bytes()
+}
+```
+
+사용로직은 대체로 이렇다.
+이렇게 사용하는 이유는 json과 비슷하다고 보면된다.
+지금 사용하는 bolt db는 key:value를 저장하는 database인데.. 아마도 내 추측인데 object를 저장할수는 없는 모양이다. 그러니까. object를 저장하고 싶다면 이렇게 인코딩을 하고, 읽어올 때는 반대로 디코딩을 해서..
+데이터를 처리하는 것같다.
+
+위의 코드는 buffer를 만들어서(인코딩이 저장될..) 인코딩 후 인코딩 된 데이터를 byte의 슬라이스 형태로 리턴해주는 것.
+
+### Bolt browser
+
+bolt db를 보고 싶니..?
+두 개의 패키지가 있다. boltbrowser / boltweb
+
+전자는 cli 기반 후자는 web 기반임.
+
+https://github.com/br0xen/boltbrowser
+https://github.com/evnix/boltdbweb
+
+go get github.com/evnix/boltdbweb
+
+아무래도 전체적인 db 점유일이 bolt가 낮은편이라 그런지 검색하는데 엄한 것이 많이 나오는 편이다.
+
+## Restore Data
+
+매번 genesis 블록을 줘야할 필요는 없으니까, db에 checkpoint가 있다면 읽어와서 blockchain 정보에 추가하는 것으로..
+전체적인 로직은.. 아래와 같다.
+
+```go
+func GetBlockchain() *blockchain {
+	if b == nil {
+		once.Do( func() {
+			b = &blockchain{"", 0}
+			checkpoint := db.Blockchain()
+			// search for checkpoint on the db
+			// restore b from bytes
+			fmt.Printf("NewestHash: %s\nHeight: %d\n", b.NewestHash, b.Height)
+			if(checkpoint == nil) {
+				b.AddBlock("Genesis Block")
+			} else {
+				fmt.Println("Restoring...")
+				b.restore(checkpoint)
+			}
+			fmt.Printf("NewestHash: %s\nHeight: %d\n", b.NewestHash, b.Height)
+		})
+	}
+	return b
+}
+```
+
+그 전의 코드와 다른 점은 checkpoint를 읽어 오는 부분.. `db.Blockchain`이 생긴 점이다.
+db의 Blockchain은.. 이 코스에서 처음으로 data를 읽어온 부분인데.. 사실 쓰는 것과 별반 다를 점은 없다.
+
+```go
+func Blockchain() []byte {
+	var data []byte
+	err := DB().View( func(t *bolt.Tx) error {
+		bucket := t.Bucket([]byte(dataBucket))
+		data = bucket.Get([]byte(checkpoint))
+		return nil
+	})
+	utils.HandleError(err)
+	return data
+}
+```
+
+`bucket.get` 메소드는 checkpoint라는 키값을 받으면.. 그 값에 해당하는 value를 리턴해주는 것.
+
+toBytes로 한것과 반대의 과정이 필요..
+
+```go
+func (b *blockchain) fromBytes(data []byte) {
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	decoder.Decode(b)
+}
+```
+
+저렇게 하면 b로 데이터가 쑝 들어간다.
+
+```go
+// Decode reads the next value from the input stream and stores
+// it in the data represented by the empty interface value.
+// If e is nil, the value will be discarded. Otherwise,
+// the value underlying e must be a pointer to the
+// correct type for the next data item received.
+// If the input is at EOF, Decode returns io.EOF and
+// does not modify e.
+func (dec *Decoder) Decode(e interface{}) error {
+	if e == nil {
+		return dec.DecodeValue(reflect.Value{})
+	}
+	value := reflect.ValueOf(e)
+	// If e represents a value as opposed to a pointer, the answer won't
+	// get back to the caller. Make sure it's a pointer.
+	if value.Type().Kind() != reflect.Ptr {
+		dec.err = errors.New("gob: attempt to decode into a non-pointer")
+		return dec.err
+	}
+	return dec.DecodeValue(value)
+}
+```
+
+Decode의 소오스코드를 보면.. 포인터를 제공해줘야 한다.. 는 것을 알 수 있다.
+포인터를 넘겨주면 그 안에 바이트 데이터를 디코드해서 넣어주는 모양이다.
+
+위의 toBytes를 만든 것처럼 그래서 FromBytes 유틸함수도 만듬.
+
+```go
+func FromBytes(i interface{}, data []byte) {
+	HandleError(gob.NewDecoder(bytes.NewReader(data)).Decode(i))
+}
+```
+
+포인터가 아닌 데이터가 들어가면 안되는데, 그건 Decode함수에서 알아서 컨트롤하니까.. 그냥 사용하면 된다.
