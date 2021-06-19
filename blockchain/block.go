@@ -13,6 +13,8 @@ type Block struct {
 	Hash string `json:"hash"`
 	PrevHash string `json:"prevHash,omitempty"`
 	Height int `json:"height"`
+	Difficulty int `json:"difficulty"`
+	Nonce int `json:"nonce"`
 }
 
 
