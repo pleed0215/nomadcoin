@@ -16,8 +16,14 @@ var ErrNotFound error = errors.New("block not found")
 type blockchain struct {
 	NewestHash string `json:"newsetHash"`
 	Height	   int	  `json:"height"`
+	CurrentDifficulty int `json:"currentDifficulty"`
 }
-
+const (
+	difaultDifficulty int = 2
+	difficultyInterval int = 5
+	blockInterval int = 2
+	allowedRange int = 2
+)
 
 
 /*
@@ -34,6 +40,7 @@ func (b *blockchain) AddBlock(data string) {
 	block := createBlock(data, b.NewestHash, b.Height+1)
 	b.NewestHash = block.Hash
 	b.Height = block.Height
+	b.CurrentDifficulty = BC().difficulty()
 	b.persist()
 }
 
@@ -59,10 +66,35 @@ func (b *blockchain) restore(data []byte) {
 	utils.FromBytes(b, data)
 }
 
+func (b *blockchain) recalculateDifficulty() int {
+	allBlocks := b.AllBlocks()
+	newestBlock := allBlocks[0]
+	lastRecalculatedBlock := allBlocks[difficultyInterval-1]
+	actualTime := (newestBlock.Timestamp-lastRecalculatedBlock.Timestamp)/60
+	expectedTime := difficultyInterval * blockInterval
+	if actualTime <= (expectedTime-allowedRange) {
+		return b.CurrentDifficulty + 1
+	} else if actualTime > (expectedTime+allowedRange) {
+		return b.CurrentDifficulty - 1
+	}
+	return b.CurrentDifficulty
+}
+
+func (b *blockchain) difficulty() int {
+	if b.Height == 0 {
+		return difaultDifficulty
+	} else if b.Height % difficultyInterval == 0 {
+		// recalc the difficulty
+		return b.recalculateDifficulty()
+	} else {
+		return b.CurrentDifficulty
+	}
+}
+
 func BC() *blockchain {
 	if b == nil {
 		once.Do( func() {
-			b = &blockchain{"", 0}
+			b = &blockchain{Height: 0}
 			checkpoint := db.Blockchain()
 			// search for checkpoint on the db
 			// restore b from bytes

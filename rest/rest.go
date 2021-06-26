@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pleed0215/nomadcoin/blockchain"
 	bc "github.com/pleed0215/nomadcoin/blockchain"
 	"github.com/pleed0215/nomadcoin/utils"
 )
@@ -44,23 +45,28 @@ func jsonMiddleware(next http.Handler) http.Handler {
 func documentation(rw http.ResponseWriter, r *http.Request) {
 	data := []urlDescription{
 		{
-			URL: "/",
+			URL: url("/"),
 			Method: "GET",
 			Description: "See Documentation",
 		},
 		{
-			URL: "/blocks",
+			URL: url("/blocks"),
 			Method: "POST",
 			Description: "Create a block",
 			Payload:"data:string",
 		},
 		{
-			URL: "/blocks",
+			URL: url("/status"),
+			Method: "GET",
+			Description: "See Status",
+		},
+		{
+			URL: url("/blocks"),
 			Method: "GET",
 			Description: "See all blocks",
 		},
 		{
-			URL: "/blocks/{height}",
+			URL: url("/blocks/{height}"),
 			Method: "GET",
 			Description: "See a block",
 			Payload: "height:int",
@@ -103,11 +109,16 @@ func block(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func status(rw http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(rw).Encode(blockchain.BC())
+}
+
 func Start(aPort int) {
 	newServer := mux.NewRouter()
 	port=fmt.Sprintf(":%d", aPort)
 	newServer.Use(jsonMiddleware)
 	newServer.HandleFunc("/", documentation).Methods("GET")
+	newServer.HandleFunc("/status", status).Methods("GET")
 	newServer.HandleFunc("/blocks", blocks).Methods("GET", "POST")
 	newServer.HandleFunc("/block/{hash:[a-f0-9]+}", block).Methods("GET")
 	fmt.Println("listening on http://localhost", port)

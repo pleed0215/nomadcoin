@@ -739,3 +739,22 @@ func FromBytes(i interface{}, data []byte) {
 그리하여..
 
 `runtime.GoExit()`를 사용하도록 한다.
+
+# Proof of Work
+https://namu.wiki/w/proof-of-work
+자세한 설명은 니코의 영상을 참고하는 것도 괜찮고 위의 나무위키도 꽤 잘 설명이 되어 있다.
+
+## concept
+
+### strings.HasPrefix
+```go
+difficulty := 2
+target := strings.Repeat("0", difficulty);
+nonce := 1
+for {
+	hash := fmt.Sprintf("%x", sha256.Sum256(([]byte("hello"+fmt.Sprint(nonce)))))
+	if strings.HasPrefix()
+}
+````
+strings의 HasPrefix 함수를 기록해 놓고 싶어서..
+
