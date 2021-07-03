@@ -34,8 +34,8 @@ func add(rw http.ResponseWriter, r *http.Request) {
 			templates.ExecuteTemplate(rw, "add", data)	
 		case "POST":
 			r.ParseForm()
-			data:=r.Form.Get("blockData")
-			bc.BC().AddBlock(data)
+			//data:=r.Form.Get("blockData")
+			bc.BC().AddBlock()
 			http.Redirect(rw, r, "/", http.StatusPermanentRedirect)
 	}
 	//tmpl.Execute(rw, data)

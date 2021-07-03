@@ -5,10 +5,16 @@ http://localhost:4001/blocks
 POST http://localhost:4001/blocks
 
 {
-    "message": "Data for my block"
+    "message": "Data1"
 }
 ###
 http://localhost:3001/block/11
 
-
+###
 http://localhost:4001/status
+
+###
+http://localhost:4001/balance/nico
+
+###
+http://localhost:4001/balance/nico?total=true

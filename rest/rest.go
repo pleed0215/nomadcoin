@@ -24,6 +24,11 @@ type errorResponse struct {
 	ErrorMessage string `json:"errorMessage"`
 }
 
+type balanceResponse struct {
+	Address string `json:"address"`
+	Balance int `json:"balance"`
+}
+
 type urlDescription struct {
 	URL url `json:"url"`
 	Method string `json:"method"`
@@ -71,6 +76,12 @@ func documentation(rw http.ResponseWriter, r *http.Request) {
 			Description: "See a block",
 			Payload: "height:int",
 		},
+		{
+			URL: url("/balance/{address}"),
+			Method: "GET",
+			Description: "Get Transaction Outputs for an Address",
+			Payload: "address:string",
+		},
 	}
 	
 	json.NewEncoder(rw).Encode(data)
@@ -85,7 +96,7 @@ func blocks(rw http.ResponseWriter, r *http.Request) {
 	case "POST":
 		var addBlockBody addBlockBody
 		utils.HandleError(json.NewDecoder(r.Body).Decode(&addBlockBody))
-		bc.BC().AddBlock(addBlockBody.Message)
+		bc.BC().AddBlock()
 		rw.WriteHeader(http.StatusCreated)
 	default:
 		rw.WriteHeader(http.StatusMethodNotAllowed)
@@ -113,6 +124,28 @@ func status(rw http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(rw).Encode(blockchain.BC())
 }
 
+func balance(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	address := vars["address"]
+	total := r.URL.Query().Get("total");
+	switch total {
+	case "true":
+		balance := blockchain.BC().BalanceByAddress(address)
+		utils.HandleError(
+			json.NewEncoder(rw).
+			Encode(
+				balanceResponse{
+					Address: address, 
+					Balance: balance,
+				},
+			),
+		)
+	default:
+		utils.HandleError(json.NewEncoder(rw).Encode(blockchain.BC().TxOutsByAddress(address))) 
+	}
+	
+}
+
 func Start(aPort int) {
 	newServer := mux.NewRouter()
 	port=fmt.Sprintf(":%d", aPort)
@@ -121,6 +154,7 @@ func Start(aPort int) {
 	newServer.HandleFunc("/status", status).Methods("GET")
 	newServer.HandleFunc("/blocks", blocks).Methods("GET", "POST")
 	newServer.HandleFunc("/block/{hash:[a-f0-9]+}", block).Methods("GET")
+	newServer.HandleFunc("/balance/{address}",balance)
 	fmt.Println("listening on http://localhost", port)
 	log.Fatal(http.ListenAndServe(port, newServer))
 }
